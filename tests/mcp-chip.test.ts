@@ -6,6 +6,7 @@ import test from "node:test";
 import { FOOTER_NERD_ICON_MCP, footerGlyphs } from "../extensions/feature/shell/footer.ts";
 import {
 	BUILTIN_MCP_SOURCE,
+	buildMcpChip,
 	builtinMcpOwnsCommand,
 	configuredMcpServers,
 	connectedMcpServers,
@@ -110,6 +111,36 @@ test("已配置：读 mcp.json，跳过 enabled:false，项目级只在已信任
 		assert.deepEqual(configuredMcpServers({ agentDir, cwd, projectTrusted: false }), []);
 	} finally {
 		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("组装：工具与命令读 pi API，ctx 只提供 cwd / trust", () => {
+	const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const agentDir = mkdtempSync(join(tmpdir(), "pi-mcp-chip-api-"));
+	try {
+		// 空 agent 目录：已配置数完全由 mcp.json 决定，测试不受本机配置影响
+		process.env.PI_CODING_AGENT_DIR = agentDir;
+		const api = {
+			getCommands: () => [{ name: "mcp", sourceInfo: { path: BUILTIN_MCP_SOURCE } }],
+			getAllTools: () => [mcpTool("chrome-devtools"), mcpTool("jira")],
+		};
+		const ctx = { cwd: agentDir, isProjectTrusted: () => false };
+		assert.equal(buildMcpChip(ctx, api), "MCP 2/2");
+		// ctx 上没有这些 API，不能拿来当工具源
+		assert.equal(buildMcpChip(ctx, undefined), undefined);
+		// 过期 ctx / 未绑定运行时时抛错不冒泡
+		assert.equal(
+			buildMcpChip(ctx, {
+				getCommands: () => {
+					throw new Error("stale ctx");
+				},
+			}),
+			undefined,
+		);
+	} finally {
+		if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+		else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+		rmSync(agentDir, { recursive: true, force: true });
 	}
 });
 

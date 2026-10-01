@@ -180,6 +180,8 @@ let currentTui: any = undefined;
 let refreshCurrentGitStats: (() => void) | undefined;
 let refreshCurrentUsage: (() => void) | undefined;
 let refreshCurrentMcpChip: (() => void) | undefined;
+/** 工具/命令列表在 pi API 上，而 footer 工厂只拿得到 ctx，加载时记下来。 */
+let extensionApi: Pick<ExtensionAPI, "getAllTools" | "getCommands"> | undefined;
 
 const createCustomFooterFactory =
 	(ctx: ExtensionContext) => (tui: any, theme: any, footerData: any) => {
@@ -294,10 +296,10 @@ const createCustomFooterFactory =
 		const usageRefreshTimer = setInterval(refreshUsage, USAGE_REFRESH_INTERVAL_MS);
 		usageRefreshTimer.unref?.();
 
-		// 内置 MCP 的状态不经 setStatus 暴露，只能轮询 getAllTools() 与 mcp.json 推算
+		// 内置 MCP 的状态不经 setStatus 暴露，只能轮询 pi API 与 mcp.json 推算
 		const refreshMcp = () => {
 			if (disposed) return;
-			const chip = buildMcpChip(ctx);
+			const chip = buildMcpChip(ctx, extensionApi);
 			const glyph = footerGlyphs(config.footerNerdIcons).mcp;
 			const next = chip ? `${glyph ? `${glyph} ` : ""}${chip}` : "";
 			if (cachedMcpChip === next) return;
@@ -497,6 +499,7 @@ export function clearCustomFooter(ctx: ExtensionContext): void {
 }
 
 export default function (pi: ExtensionAPI) {
+	extensionApi = pi;
 	// 模型/思考级别变化时强制重渲染（自定义 footer 不会被内置 invalidate() 触达）
 	pi.on("model_select", () => {
 		currentTui?.requestRender();

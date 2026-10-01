@@ -4,7 +4,7 @@
  * pi 的内置 MCP 不写 setStatus：连接状态只在 `/mcp` 菜单里，扩展读不到。这里用公开数据推算
  * 「已连接/已配置」，并在别的扩展接管 `/mcp` 时让位（pi-mcp-adapter 这类扩展自己会写 "mcp" 状态）。
  *
- * - 已连接：getAllTools() 里来源是 builtin:mcp、曝光非 hidden 的工具，按 namespace 去重。
+ * - 已连接：`pi.getAllTools()` 里来源是 builtin:mcp、曝光非 hidden 的工具，按 namespace 去重。
  *   断线后工具仍在、0 个工具的服务器连上也看不见，needs-auth / failed 与 connecting 也分不开，
  *   所以这只是近似值。
  * - 已配置：mcp.json 里 enabled !== false 的条目（项目级要已 trust）。
@@ -115,12 +115,14 @@ export function builtinMcpOwnsCommand(commands: readonly any[]): boolean {
 }
 
 /** footer 渲染用：当前芯片文案（不含 nerd 图标），不适用时返回 undefined。 */
-export function buildMcpChip(ctx: any): string | undefined {
+export function buildMcpChip(ctx: any, api: any): string | undefined {
 	try {
-		if (!builtinMcpOwnsCommand(ctx?.getCommands?.() ?? [])) return undefined;
-		if (typeof ctx?.getAllTools !== "function") return undefined;
+		// 工具与命令列表在 pi API 上，ctx 只提供 cwd / trust
+		if (!builtinMcpOwnsCommand(api?.getCommands?.() ?? [])) return undefined;
+		const tools = api?.getAllTools?.();
+		if (!Array.isArray(tools)) return undefined;
 		return formatMcpChip(
-			connectedMcpServers(ctx.getAllTools()),
+			connectedMcpServers(tools),
 			configuredMcpServers({
 				agentDir: mcpAgentDir(),
 				cwd: String(ctx?.cwd ?? process.cwd()),
@@ -128,7 +130,7 @@ export function buildMcpChip(ctx: any): string | undefined {
 			}),
 		);
 	} catch {
-		// footer 不能因为读配置失败而中断渲染
+		// footer 不能因为读配置或读工具列表失败而中断渲染
 		return undefined;
 	}
 }
