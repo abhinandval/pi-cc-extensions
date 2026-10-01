@@ -469,7 +469,8 @@ return g + f`,
 				{ type: "text", text: header },
 				{ type: "text", text: codemodeOutput },
 			],
-			details: { calls: nested, fullOutputPath: "C:\\tmp\\pi-codemode-out.txt" },
+			// 展开态顺便展示子调用错误文本的缩进
+			details: { calls: doneCalls, fullOutputPath: "C:\\tmp\\pi-codemode-out.txt" },
 			isError: false,
 		});
 		expanded.setExpanded(true);

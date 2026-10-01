@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+	codemodeCalls,
 	codemodeCollapsedLines,
 	codemodeExpandedBody,
 	codemodeOutputLineCount,
 	codemodeOutputText,
-	codemodeSummaryText,
+	codemodeSummaryParts,
 	createCodemodeResultComponent,
 } from "../extensions/renderer/tool/codemode.ts";
 import { toolCallSummary } from "../extensions/renderer/tool/names.ts";
@@ -40,19 +41,46 @@ test("输出正文：脚本头只切整块，折叠摘要不再多算 3 行", ()
 	assert.equal(codemodeOutputLineCount(glued), 4);
 });
 
+/** 汇总行是片段用 ` · ` 拼的，测试里拼回字符串更好读。 */
+const summaryText = (calls: any[], outputLines: number, running: boolean) =>
+	codemodeSummaryParts(calls, outputLines, running).join(" · ");
+
 test("汇总文案：运行中报进度，完成后报条数/失败数/输出行数", () => {
-	assert.equal(codemodeSummaryText([], 0, false), "Done");
-	assert.equal(codemodeSummaryText([call()], 0, false), "1 call");
-	assert.equal(codemodeSummaryText([call(), call()], 1, false), "2 calls · 1 line output");
+	assert.equal(summaryText([], 0, false), "Done");
+	assert.equal(summaryText([call()], 0, false), "1 call");
+	assert.equal(summaryText([call(), call()], 1, false), "2 calls · 1 line output");
 	assert.equal(
-		codemodeSummaryText([call({ status: "error" }), call()], 2, false),
+		summaryText([call({ status: "error" }), call()], 2, false),
 		"2 calls · 1 failed · 2 lines output",
 	);
 	assert.equal(
-		codemodeSummaryText([call({ status: "running" }), call({ status: "ok" })], 0, true),
+		summaryText([call({ status: "running" }), call({ status: "ok" })], 0, true),
 		"1 call running · 1 done",
 	);
-	assert.equal(codemodeSummaryText([], 0, true), "running");
+	assert.equal(summaryText([], 0, true), "running…");
+});
+
+test("异常数据不崩：calls 非数组、元素为 null、args 非字符串", () => {
+	const messy = { content: [], details: { calls: "nope" } };
+	assert.deepEqual(codemodeCalls(messy), []);
+	assert.deepEqual(
+		codemodeCollapsedLines({ result: messy, theme, running: false, isError: false, width: 100 }),
+		["   Done • click to show more"],
+	);
+
+	const withNulls = result({}, [null, { name: "read" }, call({ args: 42 })]);
+	const lines = codemodeCollapsedLines({
+		result: withNulls,
+		theme,
+		running: false,
+		isError: false,
+		width: 100,
+	});
+	// 没带 status 的调用按运行中处理（braille 帧随挂钟变，用正则）
+	assert.match(lines[0]!, /^ {3}├ \S Tool$/);
+	assert.match(lines[1]!, /^ {3}├ \S Read$/);
+	assert.match(lines[2]!, /^ {3}├ \S Ffgrep 31ms$/);
+	assert.equal(lines[3], "   └ 3 calls · 2 lines output • click to show more");
 });
 
 test("折叠态：子调用全用 ├，最后一行用 └ 收汇总", () => {
@@ -176,7 +204,29 @@ test("展开正文：全部子调用（含错误）+ 去头输出 + 全量输出
 	);
 });
 
-test("折叠组件：只有汇总行是展开入口，运行中不可展开，尺寸结果缓存", () => {
+test("运行中同样只列最近 8 条", () => {
+	const many = Array.from({ length: 11 }, (_, i) =>
+		call({
+			id: `c/${i + 1}`,
+			name: "read",
+			args: `{"path":"src/f${i + 1}.ts"}`,
+			status: "running",
+			durationMs: undefined,
+		}),
+	);
+	const lines = codemodeCollapsedLines({
+		result: result({}, many),
+		theme,
+		running: true,
+		isError: false,
+		width: 100,
+	});
+	assert.equal(lines[0], "   ├ … 3 earlier calls");
+	assert.equal(lines.length, 10);
+	assert.equal(lines.at(-1), "   └ 11 calls running");
+});
+
+test("折叠组件：只有汇总行是展开入口，运行中不可展开", () => {
 	const running = createCodemodeResultComponent({
 		result: result(),
 		theme,
@@ -196,10 +246,10 @@ test("折叠组件：只有汇总行是展开入口，运行中不可展开，�
 	});
 	assert.equal(done.isCollapsedHintLine("   └ 1 call · 2 lines output • click to show more"), true);
 	assert.equal(done.isCollapsedHintLine('   ├ ✓ Ffgrep "mcp" in src/ 31ms'), false);
-	assert.equal(done.render(100), done.render(100));
-	assert.notEqual(done.render(100), done.render(80));
-	done.invalidate();
-	assert.deepEqual(done.render(100), done.render(100));
+	assert.deepEqual(done.render(100), [
+		'   ├ ✓ Ffgrep "mcp" in src/ 31ms',
+		"   └ 1 call · 2 lines output • click to show more",
+	]);
 });
 
 test("调用行：跳过 // @options 取首行代码，后面还有内容时补省略号", () => {

@@ -62,7 +62,7 @@ export function codemodeOutputLineCount(result: any): number {
 	return text ? text.split("\n").length : 0;
 }
 
-/** 汇总行文案片段（按重要度先后排列，渲染时从尾部丢以适配宽度）。 */
+/** 汇总行片段（按重要度先后排列，渲染时从尾部丢以适配宽度）。 */
 export function codemodeSummaryParts(
 	calls: readonly CodemodeNestedCall[],
 	outputLines: number,
@@ -78,21 +78,12 @@ export function codemodeSummaryParts(
 		const done = total - runningCount;
 		if (done) parts.push(`${done} done`);
 		if (failed) parts.push(`${failed} failed`);
-		return parts.length ? parts : ["running"];
+		return parts.length ? parts : ["running…"];
 	}
 	if (total) parts.push(`${total} ${total === 1 ? "call" : "calls"}`);
 	if (failed) parts.push(`${failed} failed`);
 	if (outputLines) parts.push(`${outputLines} ${outputLines === 1 ? "line" : "lines"} output`);
 	return parts.length ? parts : ["Done"];
-}
-
-/** 汇总行文案：运行中报进度，完成后报条数与输出行数。 */
-export function codemodeSummaryText(
-	calls: readonly CodemodeNestedCall[],
-	outputLines: number,
-	running: boolean,
-): string {
-	return codemodeSummaryParts(calls, outputLines, running).join(" · ");
 }
 
 /** 宽度不够时从尾部丢片段（先丢输出行数，再丢条数），不断词。 */
@@ -108,19 +99,19 @@ function formatDuration(ms: number): string {
 }
 
 /** 与 pi 原生一致：不到 1 分显示两位有效数字。 */
-export function formatCodemodeCost(cost: number): string {
+function formatCost(cost: number): string {
 	return `$${cost >= 0.01 ? cost.toFixed(2) : cost.toPrecision(2)}`;
 }
 
 /** 单次子调用的耗时/费用（纯文本，着色由调用方决定）。 */
 function callMeta(call: CodemodeNestedCall): string[] {
 	const out: string[] = [];
-	const duration = Number(call?.durationMs);
-	if (Number.isFinite(duration) && duration >= 0 && call?.durationMs !== undefined) {
+	const duration = call?.durationMs;
+	if (typeof duration === "number" && Number.isFinite(duration) && duration >= 0) {
 		out.push(formatDuration(duration));
 	}
-	const cost = Number(call?.cost);
-	if (Number.isFinite(cost) && cost > 0) out.push(formatCodemodeCost(cost));
+	const cost = call?.cost;
+	if (typeof cost === "number" && Number.isFinite(cost) && cost > 0) out.push(formatCost(cost));
 	return out;
 }
 
@@ -183,7 +174,7 @@ export function codemodeCollapsedLines(options: {
 	const fg = theme.fg.bind(theme);
 	const calls = codemodeCalls(result);
 	const rowWidth = toolViewportWidth(options.width);
-	const shown = running ? calls : calls.slice(-COLLAPSED_CALL_LIMIT);
+	const shown = calls.slice(-COLLAPSED_CALL_LIMIT);
 	const lines: string[] = [];
 	if (shown.length < calls.length) {
 		const hidden = calls.length - shown.length;
@@ -236,8 +227,8 @@ export function codemodeExpandedBody(result: any): string {
 }
 
 /**
- * 折叠态结果组件。运行中的 braille 帧按挂钟变化，不缓存；只有汇总行是展开入口，
- * 与 diff 卡一致。
+ * 折叠态结果组件。只有汇总行是展开入口，与 diff 卡一致；行本身很便宜，
+ * 不自己缓存（settled 卡另有整行 paint 缓存，运行中本就按帧重算）。
  */
 export function createCodemodeResultComponent(options: {
 	result: any;
@@ -246,22 +237,11 @@ export function createCodemodeResultComponent(options: {
 	isError: boolean;
 }): any {
 	const { result, theme, running, isError } = options;
-	let cachedWidth: number | undefined;
-	let cachedLines: string[] | undefined;
 	return {
 		render(width: number): string[] {
-			if (!running && cachedLines && cachedWidth === width) return cachedLines;
-			const lines = codemodeCollapsedLines({ result, theme, running, isError, width });
-			if (!running) {
-				cachedWidth = width;
-				cachedLines = lines;
-			}
-			return lines;
+			return codemodeCollapsedLines({ result, theme, running, isError, width });
 		},
-		invalidate(): void {
-			cachedWidth = undefined;
-			cachedLines = undefined;
-		},
+		invalidate(): void {},
 		isCollapsedHintLine(plainLine: string): boolean {
 			return !running && /(click to show more|to show more)\s*$/.test(stripAnsi(plainLine));
 		},

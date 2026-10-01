@@ -106,6 +106,11 @@ let cachedLocalUsageText = "";
 /** 本包推算的内置 MCP 芯片（含 nerd 图标）；空字符串表示不显示。 */
 let cachedMcpChip = "";
 
+/** 别的扩展（pi-mcp-adapter）自己写了 mcp 状态时不画，避免两个芯片。 */
+function ownMcpChip(): string {
+	return cachedMcpChip && !cachedExtensionStatuses.has(MCP_STATUS_KEY) ? cachedMcpChip : "";
+}
+
 /** 面板用：当前 setStatus 文案 + 本包 pi-usage / MCP（无文案时为空字符串）。 */
 export function getFooterStatusSnapshot(): Map<string, string> {
 	const out = new Map<string, string>();
@@ -114,10 +119,8 @@ export function getFooterStatusSnapshot(): Map<string, string> {
 		out.set(key, text);
 	}
 	out.set(PI_USAGE_KEY, cachedLocalUsageText);
-	// 别的扩展（pi-mcp-adapter）写了 mcp 就不重复上报
-	if (cachedMcpChip && !cachedExtensionStatuses.has(MCP_STATUS_KEY)) {
-		out.set(MCP_STATUS_KEY, cachedMcpChip);
-	}
+	const mcpChip = ownMcpChip();
+	if (mcpChip) out.set(MCP_STATUS_KEY, mcpChip);
 	return out;
 }
 
@@ -389,10 +392,8 @@ const createCustomFooterFactory =
 				footerData.getExtensionStatuses().entries() as Iterable<[string, string]>,
 			);
 			const pluginTexts = pluginTextsForRender(localUsageChip);
-			// 别的扩展（pi-mcp-adapter）自己写了 mcp 状态芯片时让它，不重复画
-			if (cachedMcpChip && !cachedExtensionStatuses.has(MCP_STATUS_KEY)) {
-				pluginTexts.set(MCP_STATUS_KEY, cachedMcpChip);
-			}
+			const mcpChip = ownMcpChip();
+			if (mcpChip) pluginTexts.set(MCP_STATUS_KEY, mcpChip);
 			const layout = resolveFooterChipLayout(layoutFromConfig(), [...pluginTexts.keys()]);
 			const dimPlugin = (text: string) => colorUsageChip(theme, text);
 			const line1Plugins = visibleFooterPluginTexts(

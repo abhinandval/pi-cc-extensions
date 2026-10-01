@@ -206,6 +206,8 @@ write 新建 / 覆盖：
  └ Output
    ffgrep {"pattern":"mcp","path":"src/"} 31ms
    fffind {"pattern":"mcp"} 12ms
+   mcp__chrome_devtools__list_pages {} 240ms
+       server disconnected
 
    --- grep ---
    extensions/renderer/tool/mcp-title.ts
