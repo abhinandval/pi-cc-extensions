@@ -414,7 +414,79 @@ async function generateDefault() {
 		);
 	}
 
-	// 9. tool grouping
+	// 9. codemode（内置）
+	{
+		const codeArgs = {
+			code: `// @options: {"max_output_tokens": 1000}
+const [g, f] = await Promise.all([
+  tools.ffgrep({ pattern: "mcp", path: "src/" }),
+  tools.fffind({ pattern: "mcp" }),
+])
+return g + f`,
+		};
+		const header = "Script completed\nWall time 1.9 seconds\nOutput:\n";
+		const codemodeOutput = [
+			"--- grep ---",
+			"extensions/renderer/tool/mcp-title.ts",
+			"extensions/renderer/tool/names.ts",
+		].join("\n");
+		const nested = [
+			{
+				id: "cm/1",
+				name: "ffgrep",
+				args: '{"pattern":"mcp","path":"src/"}',
+				status: "ok",
+				durationMs: 31,
+			},
+			{ id: "cm/2", name: "fffind", args: '{"pattern":"mcp"}', status: "ok", durationMs: 12 },
+		];
+
+		const running = tool("codemode", "cm-run", codeArgs);
+		running.updateResult(
+			{
+				content: [],
+				details: {
+					calls: nested.map((call) => ({ ...call, status: "running", durationMs: undefined })),
+				},
+			},
+			true,
+		);
+
+		const doneCalls = [...nested, { id: "cm/3", name: "mcp__chrome_devtools__list_pages", args: '{}', status: "error", durationMs: 240, error: "server disconnected" }];
+		const done = tool("codemode", "cm-done", codeArgs);
+		done.updateResult({
+			content: [
+				{ type: "text", text: header },
+				{ type: "text", text: codemodeOutput },
+			],
+			details: { calls: doneCalls },
+			isError: false,
+		});
+
+		const expanded = tool("codemode", "cm-exp", codeArgs);
+		expanded.updateResult({
+			content: [
+				{ type: "text", text: header },
+				{ type: "text", text: codemodeOutput },
+			],
+			details: { calls: nested, fullOutputPath: "C:\\tmp\\pi-codemode-out.txt" },
+			isError: false,
+		});
+		expanded.setExpanded(true);
+
+		chunks.push(
+			section(
+				"9. codemode（内置）",
+				`${fence([
+					...renderLines(running),
+					...renderLines(done),
+					...renderLines(expanded),
+				])}\n\n内置 codemode 的调用行只放首行有效代码（跳过 \`// @options:\`）；折叠态把子调用按工具组的树摊开，子调用全用 \`├\`、最后一行用 \`└\` 收汇总（运行中报进度），只有汇总行是展开入口。数据来自 \`result.details.calls\`，展开后依次是 Input 代码、全部子调用（含 error）、去掉 \`Script completed / Wall time / Output:\` 头的结果与全量输出路径。`,
+			),
+		);
+	}
+
+	// 10. tool grouping
 	{
 		const hooks = installToolGrouping(() => true);
 		try {
@@ -454,7 +526,7 @@ async function generateDefault() {
 
 			chunks.push(
 				section(
-					"9. 工具组（tool-grouping）",
+					"10. 工具组（tool-grouping）",
 					[
 						"### 收起：运行中",
 						fence(running),
@@ -481,10 +553,10 @@ async function generateDefault() {
 		}
 	}
 
-	// 10. working footer
+	// 11. working footer
 	chunks.push(
 		section(
-			"10. Working footer",
+			"11. Working footer",
 			[
 				"保留 Pi 原生 spinner，仅扩展文本：",
 				fence(["⠋ Working...", "⠋ Working... (↓ 1,234 tokens · 12s)"]),

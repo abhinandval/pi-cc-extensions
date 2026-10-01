@@ -2,7 +2,7 @@
 
 > 由真实 renderer 驱动生成的示例快照，已剥离 ANSI。
 > 实际 TUI 中包含状态色、背景色和 hover 高亮；Braille loading 帧与耗时快照取固定时钟。
-> 当前版本：ccstyle 0.9.8 · mode=`on`。
+> 当前版本：ccstyle 0.9.9 · mode=`on`。
 > renderer 变更后请运行 `npm run docs:tool-render` 同步本文件。
 
 ## 1. 运行态 / 完成态 / 失败态
@@ -180,7 +180,43 @@ write 新建 / 覆盖：
 
 网关的标题沿用 mcp-adapter 自己的 `mcp <动作> <目标>` 风格（`list` / `search` / `describe` / `call` / `connect` / `status`），内层工具入参跟其他载荷一样用 dim 接在后面；开关类参数（`regex` / `includeSchemas`）作为 dim 附注。具体工具的标题用 adapter 暴露的真实工具名（如 `mcp__github_search_code`），入参先走字段链（`query` / `url` / `command` / `path` …），字段链认不出的键（命名空间代理的 `tool`+`args`、第三方自定义键）回退完整入参 JSON；入口两个跟普通工具一样人性化：`MCP` / `MCP Script`。超过卡片宽度与 Input clip 的部分尾部截断。
 
-## 9. 工具组（tool-grouping）
+## 9. codemode（内置）
+
+```text
+ ⠋ Codemode const [g, f] = await Promise.all([ …
+   ├ ⠋ Ffgrep "mcp" in src/
+   ├ ⠋ Fffind "mcp"
+   └ 2 calls running
+
+ ✓ Codemode const [g, f] = await Promise.all([ …
+   ├ ✓ Ffgrep "mcp" in src/ 31ms
+   ├ ✓ Fffind "mcp" 12ms
+   ├ ✗ mcp__chrome_devtools__list_pages 240ms
+   └ 3 calls · 1 failed • click to show more
+
+ ✓ Codemode const [g, f] = await Promise.all([ …
+ ├ Input
+ │ code:
+ │   // @options: {"max_output_tokens": 1000}
+ │   const [g, f] = await Promise.all([
+ │     tools.ffgrep({ pattern: "mcp", path: "src/" }),
+ │     tools.fffind({ pattern: "mcp" }),
+ │ … +2 more lines • click to show more
+ │
+ └ Output
+   ffgrep {"pattern":"mcp","path":"src/"} 31ms
+   fffind {"pattern":"mcp"} 12ms
+
+   --- grep ---
+   extensions/renderer/tool/mcp-title.ts
+   extensions/renderer/tool/names.ts
+
+   Full output: C:\tmp\pi-codemode-out.txt
+```
+
+内置 codemode 的调用行只放首行有效代码（跳过 `// @options:`）；折叠态把子调用按工具组的树摊开，子调用全用 `├`、最后一行用 `└` 收汇总（运行中报进度），只有汇总行是展开入口。数据来自 `result.details.calls`，展开后依次是 Input 代码、全部子调用（含 error）、去掉 `Script completed / Wall time / Output:` 头的结果与全量输出路径。
+
+## 10. 工具组（tool-grouping）
 
 ### 收起：运行中
 
@@ -245,7 +281,7 @@ ANSI 剥离后无法展示背景，实际 TUI 行为如下：
 - 点击展开区任意行、任意列（含底部 padding）均可收起。
 - 组末尾不再额外追加空白行。
 
-## 10. Working footer
+## 11. Working footer
 
 保留 Pi 原生 spinner，仅扩展文本：
 

@@ -33,6 +33,11 @@ import {
 } from "./tool/result.ts";
 import { oneLine } from "../utils/format.ts";
 import { showMoreHintText } from "./tool/show-more-hint.ts";
+import {
+	CODEMODE_TOOL_NAME,
+	codemodeExpandedBody,
+	createCodemodeResultComponent,
+} from "./tool/codemode.ts";
 import { countWriteDiffStats } from "./tool/diff/diff-renderer.ts";
 import { renderRichToolResult, type WriteExecutionMetadataStore } from "./tool/diff/index.ts";
 import { getMessageDisplayTheme } from "./tool/message-display.ts";
@@ -305,13 +310,36 @@ function createCcstyleTool(
 			}
 
 			const expanded = isToolExpanded(options, context);
+			const isError = Boolean(options?.isError || context?.isError);
+			// codemode：折叠态自己画子调用树，展开态给全部子调用与去掉脚本头的输出
+			if (toolName === CODEMODE_TOOL_NAME) {
+				if (!options?.isPartial) setToolVisualState(context, isError ? "error" : "success");
+				if (expanded) {
+					return renderExpandedToolResult(
+						codemodeExpandedBody(result),
+						theme,
+						isError,
+						context?.lastComponent,
+						context?.args,
+						context,
+						true,
+					);
+				}
+				// 折叠态不再复用展开视图，免得 hover/鼠标命中指向已隐藏的组件
+				if (context?.state) context.state.ccstyleIoView = undefined;
+				return createCodemodeResultComponent({
+					result,
+					theme,
+					running: Boolean(options?.isPartial),
+					isError,
+				});
+			}
 			if (options?.isPartial) {
 				// 展开态贴左（Box 提供 1 格 pad）；折叠态保持 3 格对齐标题
 				const pending = expanded ? "↳ Pending…" : "   ↳ Pending…";
 				return new Text(theme.fg("muted", pending), 0, 0);
 			}
 
-			const isError = options?.isError || context?.isError;
 			setToolVisualState(context, isError ? "error" : "success");
 			const toolCallId = context?.toolCallId;
 			if (shouldRenderRichDiff(config.mode, toolName, Boolean(isError))) {
