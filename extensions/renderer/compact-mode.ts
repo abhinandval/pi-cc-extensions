@@ -1357,7 +1357,20 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		const tail: MountedRoundTail = { host: undefined, container: undefined, parts: [], round };
 		const host: any = {
 			outputPad: Number(round.anchor?.outputPad) || 0,
+			children: [],
 			render: (width: number) => tail.parts.flatMap((part: any) => part?.render?.(width) ?? []),
+			childAtRow(localRow: number, width: number) {
+				let offset = 0;
+				for (const part of tail.parts) {
+					const lines = part?.render?.(width);
+					const count = Array.isArray(lines) ? lines.length : 0;
+					if (localRow < offset + count) {
+						return part?.childAtRow?.(localRow - offset, width) ?? null;
+					}
+					offset += count;
+				}
+				return null;
+			},
 			invalidate: () => {
 				for (const part of tail.parts) part?.invalidate?.();
 			},
@@ -1373,6 +1386,10 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		// 点击/悬停归属与 anchor 同一展开入口；toggle 每次 renderRound 重建，按值转发。
 		// 经 tail.round 动态解引用：重建过户时 anchor 可能换成别的组件。
 		ensureAssistantSetExpanded(host);
+		Object.defineProperty(host, "roundAnchor", {
+			configurable: true,
+			get: () => tail.round?.anchor,
+		});
 		host[ASSISTANT_TOGGLE_ROUND_KEY] = (expanded: boolean) =>
 			tail.round?.anchor?.[ASSISTANT_TOGGLE_ROUND_KEY]?.(expanded);
 		tail.host = host;
@@ -1527,6 +1544,7 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		}
 		const tail = ensureTailHost(round);
 		tail.parts = makeParts(tail.host);
+		tail.host.children = tail.parts;
 		syncTailPosition(round);
 	};
 
@@ -1679,8 +1697,10 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		}
 
 		if (round.anchor.expanded === true) {
-			// 展开卡自带全部内容，尾行摘下（收起时在折叠分支重新挂载）。
-			unmountRoundTail(round);
+			// 展开内容留在摘要行那个位置：回合最后一个成员（含 write/edit）之后。
+			// 放进 anchor 内部会跳到回合起点，盖到中间的 write/edit 上面。
+			// anchor 未挂进 transcript 时没有这个位置，退回 anchor 内部。
+			const mounted = Boolean(tailContainerOf(round.anchor));
 			const toolsById = new Map<string, any>();
 			for (const tool of trackedToolComponents) {
 				if (typeof tool?.toolCallId === "string") toolsById.set(tool.toolCallId, tool);
@@ -1790,7 +1810,20 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 					!explicitRoundToolIds.has(String(tool.toolCallId ?? "")),
 			);
 			flushPanel();
-			for (const child of anchorChildren) round.anchor.contentContainer.addChild(child);
+			if (mounted) {
+				// 正文留在各自的 assistant 消息上，面板挂回摘要行原位。
+				const outside: any[] = [];
+				const panel: any[] = [];
+				for (const child of anchorChildren) {
+					(typeof child?.childAtRow === "function" ? panel : outside).push(child);
+				}
+				for (const child of outside) round.anchor.contentContainer.addChild(child);
+				if (panel.length > 0) mountRoundTail(round, () => panel);
+				else unmountRoundTail(round);
+			} else {
+				unmountRoundTail(round);
+				for (const child of anchorChildren) round.anchor.contentContainer.addChild(child);
+			}
 			// 展开卡内工具会显示 error，外层仍挂 abort/length，避免只藏在折叠工具里。
 			appendStopStatus(round.anchor, stopStatus);
 			return;

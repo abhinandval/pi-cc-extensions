@@ -433,7 +433,13 @@ function handleFullscreenToolClick(tui: any, packet: SgrMousePacket): boolean {
 		for (const other of others) {
 			if (other !== component && other.expanded) {
 				// 展开 round 卡内 thinking/工具时，外层 compact 卡是它的容器，不能收起。
-				if ((isThinking || isTool) && isCompactAssistantComponent(other)) continue;
+				// 面板挂在摘要行时，anchor 与摘要行是同一张外层卡，点内部工具不能收起它。
+				if (
+					(isThinking || isTool) &&
+					isCompactAssistantComponent(other) &&
+					(other === target.owner || other === target.owner?.roundAnchor)
+				)
+					continue;
 				other.setExpanded(false);
 				other.invalidate?.();
 			}

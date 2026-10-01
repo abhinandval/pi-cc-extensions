@@ -1402,6 +1402,90 @@ test("compact 展开卡：助手文本不进面板，工具卡保留底色", () 
 	}
 });
 
+test("compact 展开面板留在摘要行原位，不跳到 write/edit 上方", () => {
+	const dir = mkdtempSync(join(tmpdir(), "pi-compact-panel-anchor-"));
+	const previousDir = process.env.PI_CODING_AGENT_DIR;
+	process.env.PI_CODING_AGENT_DIR = dir;
+	const previousMode = config.mode;
+	config.mode = "compact";
+	const previousTheme = getMessageDisplayTheme();
+	setMessageDisplayTheme({
+		fg: (_color: string, text: string) => text,
+		bold: (text: string) => text,
+		italic: (text: string) => text,
+		bg: (_slot: string, text: string) => text,
+	} as any);
+	const writeMetadata = new WriteExecutionMetadataStore();
+	const { pi, ctx, emit } = extensionRuntime();
+	installCompactThinking(pi, {
+		useSummaryTitlesAsThinkingTitle: false,
+		previewLines: 3,
+		animationIntervalMs: 30,
+	});
+	emit("session_start", {}, ctx);
+	const hooks = installCompactMode({ writeMetadata });
+	const chat = new Container();
+	setToolMouseTui({ children: [chat] });
+	try {
+		const message = {
+			role: "assistant",
+			timestamp: 1,
+			content: [
+				{ type: "text", text: "先改写入路径" },
+				{ type: "toolCall", id: "b1", name: "bash", arguments: { command: "one" } },
+				{ type: "toolCall", id: "w1", name: "write", arguments: { path: "src/session.ts" } },
+			],
+		};
+		const bash = tool("bash", "b1", { command: "one" });
+		const write = tool("write", "w1", { path: "src/session.ts", content: "saved" });
+		for (const item of [bash, write]) {
+			item.executionStarted = true;
+			item.updateDisplay?.();
+		}
+		const anchor = new AssistantMessageComponent(message as any, true) as any;
+		chat.addChild(anchor);
+		anchor.updateContent(message);
+		chat.addChild(write);
+		bash.updateResult({ content: [{ type: "text", text: "line one" }], isError: false });
+		write.updateResult({ content: [], details: { diff: "+saved" }, isError: false });
+
+		const plain = (lines: string[]) =>
+			lines.map((line) =>
+				line.replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, "").replace(/\x1b\][^\x07]*\x07/g, ""),
+			);
+		const folded = plain(chat.render(120));
+		const summaryAt = folded.findIndex((line) => line.includes("bash×1"));
+		const writeAt = folded.findIndex((line) => line.includes("write src/session.ts"));
+		assert.ok(writeAt >= 0 && summaryAt > writeAt, `折叠摘要应在 write 之后: ${folded.join("\n")}`);
+
+		anchor.setExpanded(true);
+		const expanded = plain(chat.render(120));
+		const textAt = expanded.findIndex((line) => line.includes("先改写入路径"));
+		const writeExpandedAt = expanded.findIndex((line) => line.includes("write src/session.ts"));
+		const bashAt = expanded.findIndex(
+			(line) => line.includes("Bash one") || line.includes("$ one"),
+		);
+		assert.ok(
+			textAt >= 0 && writeExpandedAt > textAt,
+			`正文应仍在 write 之前: ${expanded.join("\n")}`,
+		);
+		assert.ok(bashAt > writeExpandedAt, `面板应留在 write 之后: ${expanded.join("\n")}`);
+		assert.ok(
+			componentAtLocalRow(chat, bashAt, 120)?.component === bash,
+			"面板换到摘要行后仍要能点中卡内工具",
+		);
+	} finally {
+		setToolMouseTui(null);
+		hooks.shutdown();
+		setMessageDisplayTheme(previousTheme);
+		config.mode = previousMode;
+		emit("session_shutdown", {}, ctx);
+		if (previousDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+		else process.env.PI_CODING_AGENT_DIR = previousDir;
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 test("compact 展开卡：助手文本排在 thinking 前面，不被思考块盖住", () => {
 	const dir = mkdtempSync(join(tmpdir(), "pi-compact-text-first-"));
 	const previousDir = process.env.PI_CODING_AGENT_DIR;
