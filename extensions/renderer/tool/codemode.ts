@@ -151,11 +151,17 @@ function statusIcon(status: unknown, theme: any): string {
 function callRow(call: CodemodeNestedCall, theme: any, rowWidth: number): string {
 	const fg = theme.fg.bind(theme);
 	const prefix = `${INDENT}${fg("dim", "├")} ${statusIcon(call?.status, theme)} `;
+	// detail（read 的 offset/limit 等）与工具组行一样接在标题后
+	const summary = callSummary(call);
+	const detail = fg("dim", summary.detail);
 	const suffix = callMeta(call)
 		.map((text) => ` ${fg("dim", text)}`)
 		.join("");
-	const mainWidth = Math.max(0, rowWidth - visibleWidth(prefix) - visibleWidth(suffix));
-	const row = `${prefix}${renderToolSummary(callSummary(call), mainWidth, fg)}${suffix}`;
+	const mainWidth = Math.max(
+		0,
+		rowWidth - visibleWidth(prefix) - visibleWidth(detail) - visibleWidth(suffix),
+	);
+	const row = `${prefix}${renderToolSummary(summary, mainWidth, fg)}${detail}${suffix}`;
 	return truncateToWidth(row, rowWidth, "");
 }
 

@@ -60,6 +60,17 @@ test("汇总文案：运行中报进度，完成后报条数/失败数/输出行
 	assert.equal(summaryText([], 0, true), "running…");
 });
 
+test("折叠态：子调用带 detail 时接在标题后（与工具组行一致）", () => {
+	const lines = codemodeCollapsedLines({
+		result: result({}, [call({ name: "read", args: '{"path":"src/a.ts","offset":10,"limit":1}' })]),
+		theme,
+		running: false,
+		isError: false,
+		width: 100,
+	});
+	assert.equal(lines[0], "   ├ ✓ Read src/a.ts (offset=10, limit=1) 31ms");
+});
+
 test("异常数据不崩：calls 非数组、元素为 null、args 非字符串", () => {
 	const messy = { content: [], details: { calls: "nope" } };
 	assert.deepEqual(codemodeCalls(messy), []);
