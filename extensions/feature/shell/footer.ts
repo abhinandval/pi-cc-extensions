@@ -28,18 +28,24 @@ import {
 	visibleFooterPluginTexts,
 	type FooterChipLayout,
 } from "./footer-layout.ts";
+import { MCP_STATUS_KEY, buildMcpChip } from "./mcp-chip.ts";
 
 const GIT_REFRESH_INTERVAL_MS = 10_000;
 const USAGE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+// 后台连接 MCP 服务器不会触发 footer 重绘，靠这个兜底轮询把芯片刷出来
+const MCP_REFRESH_INTERVAL_MS = 5_000;
 const USAGE_TIMEOUT_MS = 15_000;
 // zentui NERD_DEFAULT_ICONS：git / cacheHit。无 Nerd Font 时留空，只保留文字。
 export const FOOTER_NERD_ICON_GIT = "";
 export const FOOTER_NERD_ICON_CACHE = "󰆼";
 
-export function footerGlyphs(nerdIcons: boolean): { git: string; cache: string } {
+// md power-plug：MCP 服务器连接数
+export const FOOTER_NERD_ICON_MCP = "\u{f06a5}";
+
+export function footerGlyphs(nerdIcons: boolean): { git: string; cache: string; mcp: string } {
 	return nerdIcons
-		? { git: FOOTER_NERD_ICON_GIT, cache: FOOTER_NERD_ICON_CACHE }
-		: { git: "", cache: "" };
+		? { git: FOOTER_NERD_ICON_GIT, cache: FOOTER_NERD_ICON_CACHE, mcp: FOOTER_NERD_ICON_MCP }
+		: { git: "", cache: "", mcp: "" };
 }
 
 type GitStats = { add: number; del: number };
@@ -97,8 +103,10 @@ export function formatXaiFooterChip(report: XaiFooterReport): string | undefined
 
 const cachedExtensionStatuses = new Map<string, string>();
 let cachedLocalUsageText = "";
+/** 本包推算的内置 MCP 芯片（含 nerd 图标）；空字符串表示不显示。 */
+let cachedMcpChip = "";
 
-/** 面板用：当前 setStatus 文案 + 本包 pi-usage（无文案时为空字符串）。 */
+/** 面板用：当前 setStatus 文案 + 本包 pi-usage / MCP（无文案时为空字符串）。 */
 export function getFooterStatusSnapshot(): Map<string, string> {
 	const out = new Map<string, string>();
 	for (const [key, text] of cachedExtensionStatuses) {
@@ -106,6 +114,10 @@ export function getFooterStatusSnapshot(): Map<string, string> {
 		out.set(key, text);
 	}
 	out.set(PI_USAGE_KEY, cachedLocalUsageText);
+	// 别的扩展（pi-mcp-adapter）写了 mcp 就不重复上报
+	if (cachedMcpChip && !cachedExtensionStatuses.has(MCP_STATUS_KEY)) {
+		out.set(MCP_STATUS_KEY, cachedMcpChip);
+	}
 	return out;
 }
 
@@ -167,6 +179,7 @@ function colorUsageChip(theme: any, text: string): string {
 let currentTui: any = undefined;
 let refreshCurrentGitStats: (() => void) | undefined;
 let refreshCurrentUsage: (() => void) | undefined;
+let refreshCurrentMcpChip: (() => void) | undefined;
 
 const createCustomFooterFactory =
 	(ctx: ExtensionContext) => (tui: any, theme: any, footerData: any) => {
@@ -281,6 +294,21 @@ const createCustomFooterFactory =
 		const usageRefreshTimer = setInterval(refreshUsage, USAGE_REFRESH_INTERVAL_MS);
 		usageRefreshTimer.unref?.();
 
+		// 内置 MCP 的状态不经 setStatus 暴露，只能轮询 getAllTools() 与 mcp.json 推算
+		const refreshMcp = () => {
+			if (disposed) return;
+			const chip = buildMcpChip(ctx);
+			const glyph = footerGlyphs(config.footerNerdIcons).mcp;
+			const next = chip ? `${glyph ? `${glyph} ` : ""}${chip}` : "";
+			if (cachedMcpChip === next) return;
+			cachedMcpChip = next;
+			tui.requestRender();
+		};
+		refreshCurrentMcpChip = refreshMcp;
+		refreshMcp();
+		const mcpRefreshTimer = setInterval(refreshMcp, MCP_REFRESH_INTERVAL_MS);
+		mcpRefreshTimer.unref?.();
+
 		// 分支变化时同步更新分支名和相对 HEAD 的统计。
 		const unsubBranch = footerData.onBranchChange(() => {
 			refreshGitStats();
@@ -359,6 +387,10 @@ const createCustomFooterFactory =
 				footerData.getExtensionStatuses().entries() as Iterable<[string, string]>,
 			);
 			const pluginTexts = pluginTextsForRender(localUsageChip);
+			// 别的扩展（pi-mcp-adapter）自己写了 mcp 状态芯片时让它，不重复画
+			if (cachedMcpChip && !cachedExtensionStatuses.has(MCP_STATUS_KEY)) {
+				pluginTexts.set(MCP_STATUS_KEY, cachedMcpChip);
+			}
 			const layout = resolveFooterChipLayout(layoutFromConfig(), [...pluginTexts.keys()]);
 			const dimPlugin = (text: string) => colorUsageChip(theme, text);
 			const line1Plugins = visibleFooterPluginTexts(
@@ -436,11 +468,13 @@ const createCustomFooterFactory =
 				usageAbort = undefined;
 				clearInterval(gitRefreshTimer);
 				clearInterval(usageRefreshTimer);
+				clearInterval(mcpRefreshTimer);
 				unsubBranch();
 				if (currentTui === tui) {
 					currentTui = undefined;
 					refreshCurrentGitStats = undefined;
 					refreshCurrentUsage = undefined;
+					refreshCurrentMcpChip = undefined;
 				}
 			},
 		};
@@ -470,7 +504,11 @@ export default function (pi: ExtensionAPI) {
 	});
 	pi.on("thinking_level_select", () => currentTui?.requestRender());
 	// 工具执行完成后立即刷新；定时器只负责兜底捕获外部文件变化。
-	pi.on("tool_execution_end", () => refreshCurrentGitStats?.());
+	pi.on("tool_execution_end", () => {
+		refreshCurrentGitStats?.();
+		// 懒连接的 MCP 服务器可能刚被调用过
+		refreshCurrentMcpChip?.();
+	});
 
 	// 启动 / /reload / 新建会话 时按配置恢复
 	pi.on("session_start", (_event, ctx) => {

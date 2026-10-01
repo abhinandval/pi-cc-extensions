@@ -9,6 +9,7 @@ import {
 import {
 	FOOTER_NERD_ICON_CACHE,
 	FOOTER_NERD_ICON_GIT,
+	FOOTER_NERD_ICON_MCP,
 	applyCustomFooter,
 	clearCustomFooter,
 	footerGlyphs,
@@ -49,8 +50,9 @@ test("footerGlyphs drops Nerd Font icons when disabled", () => {
 	assert.deepEqual(footerGlyphs(true), {
 		git: FOOTER_NERD_ICON_GIT,
 		cache: FOOTER_NERD_ICON_CACHE,
+		mcp: FOOTER_NERD_ICON_MCP,
 	});
-	assert.deepEqual(footerGlyphs(false), { git: "", cache: "" });
+	assert.deepEqual(footerGlyphs(false), { git: "", cache: "", mcp: "" });
 });
 
 test("normalizeConfig defaults pi-usage visible on line1 for old configs", () => {
