@@ -327,11 +327,13 @@ function createCcstyleTool(
 				}
 				// 折叠态不再复用展开视图，免得 hover/鼠标命中指向已隐藏的组件
 				if (context?.state) context.state.ccstyleIoView = undefined;
+				const toolCallId = context?.toolCallId;
 				return createCodemodeResultComponent({
 					result,
 					theme,
 					running: Boolean(options?.isPartial),
 					isError,
+					isHovered: () => isToolCallHovered(toolCallId),
 				});
 			}
 			if (options?.isPartial) {

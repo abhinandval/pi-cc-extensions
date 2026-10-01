@@ -263,6 +263,31 @@ test("折叠组件：只有汇总行是展开入口，运行中不可展开", ()
 	]);
 });
 
+test("折叠态：hover 时展开提示用 text 色（与其它折叠卡一致）", () => {
+	const tagged = { fg: (color: string, text: string) => `<${color}>${text}</${color}>` } as any;
+	// 带标签的 theme 桩里标签算可见宽度，给足宽度免得被截断
+	const base = { result: result(), theme: tagged, running: false, isError: false, width: 140 };
+	// truncateToWidth 会在行尾补 ANSI reset，断言不锚尾
+	assert.match(codemodeCollapsedLines(base).at(-1)!, /<dim>• click to show more/);
+	assert.match(
+		codemodeCollapsedLines({ ...base, hovered: true }).at(-1)!,
+		/<text>• click to show more/,
+	);
+
+	// 组件在 render() 内取 hover，跟着鼠标 motion 的 requestRender 走
+	let hovered = false;
+	const component = createCodemodeResultComponent({
+		result: result(),
+		theme: tagged,
+		running: false,
+		isError: false,
+		isHovered: () => hovered,
+	});
+	assert.match(component.render(100).at(-1)!, /<dim>• click/);
+	hovered = true;
+	assert.match(component.render(100).at(-1)!, /<text>• click/);
+});
+
 test("调用行：跳过 // @options 取首行代码，后面还有内容时补省略号", () => {
 	assert.deepEqual(
 		toolCallSummary("codemode", {

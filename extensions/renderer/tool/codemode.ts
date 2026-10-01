@@ -175,6 +175,8 @@ export function codemodeCollapsedLines(options: {
 	running: boolean;
 	isError: boolean;
 	width: number;
+	/** 鼠标悬停整卡时展开提示用 text 色，与其它折叠卡一致。 */
+	hovered?: boolean;
 }): string[] {
 	const { result, theme, running, isError } = options;
 	const fg = theme.fg.bind(theme);
@@ -197,7 +199,7 @@ export function codemodeCollapsedLines(options: {
 	const summary = codemodeSummaryParts(calls, codemodeOutputLineCount(result), running);
 	// 没有子调用时不画衔接符，避免孤零零一个 └
 	const prefix = shown.length > 0 ? `${INDENT}${fg("dim", "└")} ` : INDENT;
-	const hint = running ? "" : ` ${fg("dim", `• ${showMoreHintText()}`)}`;
+	const hint = running ? "" : ` ${fg(options.hovered ? "text" : "dim", `• ${showMoreHintText()}`)}`;
 	const bodyWidth = Math.max(1, rowWidth - visibleWidth(prefix) - visibleWidth(hint));
 	const body = fg(isError ? "error" : "muted", fitSummaryParts(summary, bodyWidth));
 	lines.push(truncateToWidth(`${prefix}${body}${hint}`, rowWidth, ""));
@@ -234,18 +236,28 @@ export function codemodeExpandedBody(result: any): string {
 
 /**
  * 折叠态结果组件。只有汇总行是展开入口，与 diff 卡一致；行本身很便宜，
- * 不自己缓存（settled 卡另有整行 paint 缓存，运行中本就按帧重算）。
+ * 不自己缓存（settled 卡另有整行 paint 缓存，运行中本就按帧重算）。hover 状态在
+ * render() 内取，才能跟鼠标 motion 的 requestRender 同步。
  */
 export function createCodemodeResultComponent(options: {
 	result: any;
 	theme: any;
 	running: boolean;
 	isError: boolean;
+	/** 折叠态 hover 查询，与 diff 卡同一套（mouse/hover）。 */
+	isHovered?: () => boolean;
 }): any {
 	const { result, theme, running, isError } = options;
 	return {
 		render(width: number): string[] {
-			return codemodeCollapsedLines({ result, theme, running, isError, width });
+			return codemodeCollapsedLines({
+				result,
+				theme,
+				running,
+				isError,
+				width,
+				hovered: options.isHovered?.() ?? false,
+			});
 		},
 		invalidate(): void {},
 		isCollapsedHintLine(plainLine: string): boolean {
