@@ -288,6 +288,26 @@ test("折叠态：hover 时展开提示用 text 色（与其它折叠卡一致�
 	assert.match(component.render(100).at(-1)!, /<text>• click/);
 });
 
+test("折叠态：耗时/费用沿用官方格式（空格相连）", () => {
+	const withCost = codemodeCollapsedLines({
+		result: result({}, [call({ cost: 0.0031 })]),
+		theme,
+		running: false,
+		isError: false,
+		width: 100,
+	});
+	assert.equal(withCost[0], '   ├ ✓ Ffgrep "mcp" in src/ 31ms $0.0031');
+
+	const seconds = codemodeCollapsedLines({
+		result: result({}, [call({ durationMs: 1234.5 })]),
+		theme,
+		running: false,
+		isError: false,
+		width: 100,
+	});
+	assert.equal(seconds[0], '   ├ ✓ Ffgrep "mcp" in src/ 1.2s');
+});
+
 test("调用行：跳过 // @options 取首行代码，后面还有内容时补省略号", () => {
 	assert.deepEqual(
 		toolCallSummary("codemode", {

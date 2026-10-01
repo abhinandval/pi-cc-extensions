@@ -25,16 +25,16 @@ Run `/reload` after installation.
 
 ## Features
 
-| Feature                     | Description                                                                               | Entry point                                     |
-| --------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Claude Code UI              | Tool summaries, expand/collapse, rich edit/write diffs, and `on` / `compact` / `off` modes | `/ccstyle`                                      |
-| Markdown enhancements       | Mermaid diagrams, admonitions, URL linking, and more                                      | Automatic                                       |
-| Fullscreen mode             | Tool card/group expand and collapse on click, previews, hover highlight, and a back-to-bottom button | `TUIMODE=fullscreen` or `--tui-mode fullscreen` |
-| Settings panel              | `Style / Features / UI / Diff / Thinking / Footer` tabs                                   | `/ccstyle`                                      |
-| Context inspection          | Usage breakdown and previews for the system prompt, memory, skills, tools definition, and messages | `/context`                                      |
-| Session/Subagent references | Search and inject effective context from previous Sessions or existing SubAgents          | `@`                                             |
+| Feature                     | Description                                                                                                                                  | Entry point                                     |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Claude Code UI              | Tool summaries, expand/collapse, rich edit/write diffs, and `on` / `compact` / `off` modes                                                   | `/ccstyle`                                      |
+| Markdown enhancements       | Mermaid diagrams, admonitions, URL linking, and more                                                                                         | Automatic                                       |
+| Fullscreen mode             | Tool card/group expand and collapse on click, previews, hover highlight, and a back-to-bottom button                                         | `TUIMODE=fullscreen` or `--tui-mode fullscreen` |
+| Settings panel              | `Style / Features / UI / Diff / Thinking / Footer` tabs                                                                                      | `/ccstyle`                                      |
+| Context inspection          | Usage breakdown and previews for the system prompt, memory, skills, tools definition, and messages                                           | `/context`                                      |
+| Session/Subagent references | Search and inject effective context from previous Sessions or existing SubAgents                                                             | `@`                                             |
 | Status bar                  | Shows model, context, cache, cost, and git; also works with `@narumitw/pi-usage` for live quota. Git/cache Nerd Font icons can be turned off | `/ccstyle`                                      |
-| Theme                       | Bundled CC Dark and CC Light themes                                                       | `/theme`                                        |
+| Theme                       | Bundled CC Dark and CC Light themes                                                                                                          | `/theme`                                        |
 
 Renderer snapshots for `on` / `compact` modes: [default](./docs/tool-render-examples-default.md) · [compact](./docs/tool-render-examples-compact.md)
 
@@ -45,46 +45,46 @@ Renderer snapshots for `on` / `compact` modes: [default](./docs/tool-render-exam
 ```jsonc
 {
   // style
-  "mode": "on",                            // on / compact / off
-  "excludeRenderers": [],                  // tools keeping the native renderer; Agent always keeps its dedicated renderer
+  "mode": "on", // on / compact / off
+  "excludeRenderers": [], // tools keeping the native renderer; Agent always keeps its dedicated renderer
 
   // features
-  "enableSessionReference": true,          // @ session references
-  "enableSubagentAutocomplete": true,      // @subagent:[name] completion and delegation hints
-  "enableContextCommand": true,            // /context usage check
-  "enableAgentSummary": true,              // per-turn tool summary
-  "enableWorkingMessage": true,            // Working... bottom token/elapsed
-  "enableAliases": true,                   // /clear, /exit aliases
+  "enableSessionReference": true, // @ session references
+  "enableSubagentAutocomplete": true, // @subagent:[name] completion and delegation hints
+  "enableContextCommand": true, // /context usage check
+  "enableAgentSummary": true, // per-turn tool summary
+  "enableWorkingMessage": true, // Working... bottom token/elapsed
+  "enableAliases": true, // /clear, /exit aliases
 
   // ui
-  "expandedInputMaxLines": 5,              // expanded tool Input lines; overflow shows a footer hint
-  "expandedOutputMaxLines": 10,            // expanded tool Output lines; overflow shows a footer hint
-  "expandedPreviewMaxLines": 40,           // max lines for expanded TaskList bodies (expanded diffs always show all)
-  "inputClip": 0,                          // tool summary path/command clip length; 0 = fit width
-  "showStartupHeader": true,               // startup header (logo + tips) toggle
-  "scrollStepLines": 3,                    // fullscreen wheel scroll step
+  "expandedInputMaxLines": 5, // expanded tool Input lines; overflow shows a footer hint
+  "expandedOutputMaxLines": 10, // expanded tool Output lines; overflow shows a footer hint
+  "expandedPreviewMaxLines": 40, // max lines for expanded TaskList bodies (expanded diffs always show all)
+  "inputClip": 0, // tool summary path/command clip length; 0 = fit width
+  "showStartupHeader": true, // startup header (logo + tips) toggle
+  "scrollStepLines": 3, // fullscreen wheel scroll step
 
   // diff
-  "diffViewMode": "auto",                  // layout: auto / split / unified
-  "diffIndicatorMode": "bars",             // change indicators: bars / classic / none
-  "diffSplitMinWidth": 120,                // min terminal width for side-by-side columns
-  "editDiffCollapsedLines": 24,            // Edit collapse lines; beyond that shows the expand hint
-  "writeDiffCollapsedLines": 0,            // write collapse lines; 0 = creation summary only
-  "diffWordWrap": true,                    // wrap long diff lines
+  "diffViewMode": "auto", // layout: auto / split / unified
+  "diffIndicatorMode": "bars", // change indicators: bars / classic / none
+  "diffSplitMinWidth": 120, // min terminal width for side-by-side columns
+  "editDiffCollapsedLines": 24, // Edit collapse lines; beyond that shows the expand hint
+  "writeDiffCollapsedLines": 0, // write collapse lines; 0 = creation summary only
+  "diffWordWrap": true, // wrap long diff lines
 
   // thinking
   "useSummaryTitlesAsThinkingTitle": true, // use latest summary as thinking title
-  "previewLines": 3,                       // preview lines; 0 hides
-  "animationIntervalMs": 90,               // title animation interval (ms)
-  "dimThinkingText": false,                // dim thinking body text
+  "previewLines": 3, // preview lines; 0 hides
+  "animationIntervalMs": 90, // title animation interval (ms)
+  "dimThinkingText": false, // dim thinking body text
 
   // footer
-  "enableCustomFooter": true,              // custom status bar
-  "footerNerdIcons": true,                 // Nerd Font glyphs for git/cache; false = plain text
-  "footerHiddenKeys": [],                  // hidden plugin chip keys
-  "footerLine1Keys": ["pi-usage"],         // line1 plugin chip order; pi-usage is shown by default, data from @narumitw/pi-usage
-  "footerLine2Keys": [],                   // line2 plugin chip order (after cwd/git)
-  "footerLine3Keys": []                    // line3 overflow slot; painted only when a chip is visible
+  "enableCustomFooter": true, // custom status bar
+  "footerNerdIcons": true, // Nerd Font glyphs for git/cache; false = plain text
+  "footerHiddenKeys": [], // hidden plugin chip keys
+  "footerLine1Keys": ["pi-usage"], // line1 plugin chip order; pi-usage is shown by default, data from @narumitw/pi-usage
+  "footerLine2Keys": [], // line2 plugin chip order (after cwd/git)
+  "footerLine3Keys": [], // line3 overflow slot; painted only when a chip is visible
 }
 ```
 
@@ -108,14 +108,11 @@ npm run typecheck
 
 ## Recommended companions
 
-| Extension                                | Purpose                                                      |
-| ---------------------------------------- | ------------------------------------------------------------ |
-| `npm:@tintinweb/pi-subagents`            | Parallel SubAgents, background tasks, and worktree isolation |
-| `npm:@tintinweb/pi-tasks`                | Claude Code-style task tracking and coordination             |
-| `npm:pi-mcp-adapter`                     | On-demand MCP tool discovery with lower context usage        |
-| `npm:@ff-labs/pi-fff`                    | FFF-powered fuzzy file and content search (fffind / ffgrep)  |
-| `npm:pi-web-access`                      | Web search, URL fetching, GitHub cloning, PDF/video parsing  |
-| `npm:@narumitw/pi-usage`                 | Current-account usage for Codex / Copilot / OpenRouter       |
+| Extension                | Purpose                                                     |
+| ------------------------ | ----------------------------------------------------------- |
+| `npm:@ff-labs/pi-fff`    | FFF-powered fuzzy file and content search (fffind / ffgrep) |
+| `npm:pi-web-access`      | Web search, URL fetching, GitHub cloning, PDF/video parsing |
+| `npm:@narumitw/pi-usage` | Current-account usage for Codex / Copilot / OpenRouter      |
 
 ## Credits
 
